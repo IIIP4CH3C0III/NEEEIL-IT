@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <math.h>
 #include "pico/multicore.h"
+#include <ESP8266WiFi.h>
+
 
 // TIMER DEFINITIONS
 #define TIMER_MOTORS           100
@@ -61,12 +63,19 @@ typedef struct{
   uint8_t dr;
 } ULTRASOUND;
 
+// WEBSERVER
+#define SSID                   "ImpossivelLinearizar"
+#define PASSWORD               "123456789"     
+#define PORT                   33000             
+
+
 
 // MEMORY ALOCATION 
-MOTORS motors;
-TIME_CTRL time_ctrl;
-ULTRASOUND ultrasound_sensor[ N_ULTRASENSORS ];
-POSE robot_pose;
+MOTORS                 motors;
+TIME_CTRL              time_ctrl;
+ULTRASOUND             ultrasound_sensor[ N_ULTRASENSORS ];
+POSE                   robot_pose;
+WiFiServer             server(PORT);   
 
 // TICK COUNTER
 volatile int encoderLeftCount = 0;  
@@ -126,35 +135,41 @@ void init_motors() {
   pinMode(ENB, OUTPUT);
 }
 
-void encoderISR() {
-  for( ; ; ){
-    if (digitalRead(ENCODERRIGHT_PIN_B)) {
-      encoderRightCount--;
-    } else {
-      encoderRightCount++;
-    }
+////////// WEBSERVER /////////
 
-    if (digitalRead(ENCODERLEFT_PIN_B)) {
-      encoderLeftCount++;
-    } else {
-      encoderLeftCount--;
+void
+init_webserver( ){
+  WiFi.mode( WIFI_AP );
+  WiFi.softAP( SSID, PASSWORD);
+  server.begin( );
+  multicore_launch_core1( webserver );
+}
+
+void
+webserver( ){
+  for ( ; ; ){
+    WiFiClient client = server.available();
+    if ( client ) {
+      Serial.println("Client connected.\n");
+      while ( client.connected() ) {
+        if ( client.available() ) {
+          String request = client.readStringUntil('\0');
+          Serial.print("Received: ");
+          Serial.print("[PC] ");
+          Serial.println(request);
+
+          String response = "ACK - \"" + request + "\"";
+          Serial.print("[RASP] ");
+          client.print(response);
+
+          client.flush(); 
+          }
+      }
     }
+    delay(100);
   }
 }
 
-void reset_encoders(){
-  encoderRightCount = 0;
-  encoderLeftCount = 0;
-}
-
-
-/**
- * Initializes the encoders.
- * This function launches the `encoderISR` function on core 1.
- */
-void init_encoders() {
-  multicore_launch_core1(encoderISR);
-}
 
 /**
  * Sets the outputs for controlling the motors based on the current velocity values.
@@ -238,24 +253,31 @@ decision(){
   if( ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr  ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = SPEED_BASE;
+    
   } else if ( !ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
-    motors.vel_right = SPEED_BASE;
+    motors.vel_right = SPEED_BASE*(1+0.1);
+
   } else if ( ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = -SPEED_BASE;  
+
   } else if ( !ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = -SPEED_BASE;
     motors.vel_right = SPEED_BASE;  
+
   } else if ( ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
-    motors.vel_left  = SPEED_BASE;
+    motors.vel_left  = SPEED_BASE*(1+0.1);
     motors.vel_right = SPEED_BASE;  
+
   } else if ( !ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = SPEED_BASE;  
+
   } else if ( ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = -SPEED_BASE;  
+
   } else {
     motors.vel_left  = SPEED_BASE*1.1;
     motors.vel_right = -SPEED_BASE*1.1;   
@@ -264,11 +286,10 @@ decision(){
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   init_motors();
-  init_encoders();
+  init_webserver();
   init_pose();
-  reset_encoders();
   init_ultrsensors();
 }
 
@@ -281,7 +302,6 @@ void loop( ){
     (void)map_sonar();
     (void)decision();
     set_outputs();
-    reset_encoders();
 
   }
 }
