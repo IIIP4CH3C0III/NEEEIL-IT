@@ -238,24 +238,31 @@ decision(){
   if( ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr  ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = SPEED_BASE;
+    
   } else if ( !ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
-    motors.vel_right = SPEED_BASE;
+    motors.vel_right = SPEED_BASE*(1+0.1);
+
   } else if ( ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = -SPEED_BASE;  
+
   } else if ( !ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = -SPEED_BASE;
     motors.vel_right = SPEED_BASE;  
+
   } else if ( ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
-    motors.vel_left  = SPEED_BASE;
+    motors.vel_left  = SPEED_BASE*(1+0.1);
     motors.vel_right = SPEED_BASE;  
+
   } else if ( !ultrasound_sensor[DIREITA].dr && ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = SPEED_BASE;  
+
   } else if ( ultrasound_sensor[DIREITA].dr && !ultrasound_sensor[FRENTE].dr && !ultrasound_sensor[ESQUERDA].dr ){
     motors.vel_left  = SPEED_BASE;
     motors.vel_right = -SPEED_BASE;  
+
   } else {
     motors.vel_left  = SPEED_BASE*1.1;
     motors.vel_right = -SPEED_BASE*1.1;   
